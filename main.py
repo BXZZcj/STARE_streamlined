@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import List, Dict, Any
 from collections import defaultdict
 
-from data.demo_dataset import TestcaseDataset
-from models.demo_tracker import DemoTracker
-from core.stare import STARE
+from stare.data.demo_dataset import TestcaseDataset
+from stare.models.demo_tracker import DemoTracker
+from stare.core.stare import STARE
 
 
 def get_experiment_id(config: Dict) -> str:
@@ -130,7 +130,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("--config_path", type=str, default="configs/demo_vot.yaml")
+    parser.add_argument("--config_path", type=str, default="src/stare/configs/demo_vot.yaml")
     args = parser.parse_args()
     
     main(args)

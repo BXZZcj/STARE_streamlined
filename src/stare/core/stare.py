@@ -2,9 +2,9 @@
 from typing import Dict, Callable, List, Tuple, Optional
 import numpy as np
 
-from models.base_model import BasePerceptionModel
-from utils.convert_event_img import *
-from core.metrics import calculate_metric
+from stare.models.base_model import BasePerceptionModel
+from stare.utils.convert_event_img import *
+from stare.core.metrics import calculate_metric
 
 
 class STARE:
