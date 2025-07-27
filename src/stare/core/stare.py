@@ -59,7 +59,7 @@ class STARE:
     def run(self, event_stream:np.ndarray, ground_truth:List[Dict])->List[Dict]:
         """Main evaluation loop of STARE (Continuous Sampling & Time Advancement)"""
         
-        world_time = self.config['sampling_window_ms']
+        world_time_sec = self.config['sampling_window_ms']/1000.0
         last_output = None
         evs_duration_sec = self._get_events_duration_sec(event_stream)
         outputs_with_timestamps = []
@@ -71,32 +71,33 @@ class STARE:
             gt_ts_for_init, gt_annot_for_init = self._find_gt_for_init(ground_truth, self.config["initialization"]['sampling_window_ms'])
             info_for_init = self.config["initialization"]
             info_for_init["gt_ts_for_init"] = gt_ts_for_init
-            info_for_init["gt_annot_for_init"] = gt_annot_for_init
-            self.model.initialize(events = initial_events, info = info_for_init)
+            info_for_init["gt_annot_for_init"] = gt_annot_for_init.tolist()
+            initial_output = self.model.initialize(events = initial_events, info = info_for_init)
             
-            outputs_with_timestamps.append({
-                'output': gt_annot_for_init,
-                'timestamp': gt_ts_for_init
-            })
+            if initial_output is not None:
+                outputs_with_timestamps.append({
+                    'output': initial_output,
+                    'timestamp': gt_ts_for_init
+                })
         
-            world_time = gt_ts_for_init
+            world_time_sec = gt_ts_for_init
             last_output = gt_annot_for_init
         
         init_end_time = time.perf_counter()
         real_init_latency = init_end_time - init_start_time
         simulated_init_latency = self._get_sim_init_latency(real_init_latency)
-        world_time += simulated_init_latency
+        world_time_sec += simulated_init_latency
         
         # 2. Continuous sampling and evaluation loop
-        while world_time < evs_duration_sec:
+        while world_time_sec < evs_duration_sec:
             predict_start_time = time.perf_counter()
             # (1) Sampling: get data from the event stream based on current world time and window size
-            ts_start_sec = world_time-self.config['sampling_window_ms']/1000.0
-            ts_end_sec = world_time
+            ts_start_sec = world_time_sec-self.config['sampling_window_ms']/1000.0
+            ts_end_sec = world_time_sec
             event_segment = self._get_events_by_duration(evs=event_stream, ts_start_sec=ts_start_sec, ts_end_sec=ts_end_sec)
 
             # (2) Inference: perform one prediction and return real inference time
-            output:List = self.model.predict(event_segment, info={"last_output": last_output}).tolist()
+            output = self.model.predict(event_segment, info={"last_output": last_output})
             predict_end_time = time.perf_counter()
             real_predict_latency = predict_end_time - predict_start_time
             
@@ -104,12 +105,12 @@ class STARE:
             simulated_predict_latency = self._get_sim_predict_latency(real_predict_latency)
             
             # (4) Advance time: advance the world clock forward
-            world_time += simulated_predict_latency
+            world_time_sec += simulated_predict_latency
             
             # (5) Record results: store prediction results with timestamps
             outputs_with_timestamps.append({
                 'output': output,
-                'timestamp': world_time 
+                'timestamp': world_time_sec 
             })
             
             last_output = output  # Update state
@@ -137,7 +138,7 @@ class STARE:
             # If the first output timestamp is greater than the current ground truth timestamp,
             # we need to use the default output or the initial ground truth
             if outputs_with_timestamps[output_idx]["timestamp"] > gt_ts:
-                if self.config["evaluation"]["enabled"]:
+                if self.config["initialization"]["enabled"]:
                     if self.config["evaluation"]["default_output"] == "initial_gt":
                         matched_pairs.append((ground_truth[0]["annot"], gt_annot))
                     else:

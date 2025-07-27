@@ -7,7 +7,7 @@ import torch
 from .base_dataset import BaseDataset
 
 
-class TestcaseDataset(BaseDataset):
+class TestRVT_Dataset(BaseDataset):
     def __init__(self, dataset_path:str):
         super().__init__(dataset_path)
         
@@ -33,10 +33,14 @@ class TestcaseDataset(BaseDataset):
             for line in f:
                 parts = line.split()
                 timestamp = float(parts[0])
-                bbox = torch.tensor([int(p) for p in parts[1:]])
+                # There could be multi objects in one frame, so the list is 2-dimensional
+                # And the 5th element is the confidence score
+                detections = [int(p) for p in parts[1:]]
+                detections.insert(4, 1.0)
+                detections = torch.tensor([detections])
                 
                 ground_truth.append({
                     "timestamp": timestamp,
-                    "annot": bbox
+                    "annot": detections
                 })
         return ground_truth

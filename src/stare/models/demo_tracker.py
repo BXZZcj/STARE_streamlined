@@ -11,7 +11,7 @@ class DemoTracker(BasePerceptionModel):
     This is a simple demo tracker that is used to test the framework.
     """
     def __init__(self, event_repr_config: dict, evs_height: int, evs_width: int, checkpoint_path: str):
-        super().__init__()
+        super().__init__(event_repr_config, evs_height, evs_width, checkpoint_path)
         
         # This class is just a demo, so we don't need to load a model
         checkpoint_path = None
@@ -24,7 +24,7 @@ class DemoTracker(BasePerceptionModel):
         
     def initialize(self, events:np.ndarray, info: Dict)->torch.Tensor:
         evs_repr = self._get_representation(events)
-        pass
+        return torch.tensor(info["gt_annot_for_init"])
 
     def predict(self, events:np.ndarray, info: Dict)->torch.Tensor:
         evs_repr = self._get_representation(events)

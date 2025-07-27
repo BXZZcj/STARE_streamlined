@@ -1,6 +1,8 @@
 from typing import Dict, Any, Tuple
 import numpy as np
 import torch
+import sys
+from pathlib import Path
 
 from .event_utils import events_to_neg_pos_voxel_torch, events_to_voxel_torch
 
@@ -79,6 +81,38 @@ def create_visual_frame(events: np.ndarray, resolution: Tuple[int, int], **kwarg
         frame[y_coords[pos_mask], x_coords[pos_mask]] = torch.tensor([0, 0, 255], dtype=torch.uint8)
     return frame
 
+
+def create_stacked_histogram_from_rvt(
+    events: np.ndarray, 
+    resolution: Tuple[int, int],
+    device: torch.device, 
+    num_time_bins: int, 
+    rvt_project_root: str
+) -> torch.Tensor:
+    rvt_project_root = Path(rvt_project_root)
+    if rvt_project_root.exists() and str(rvt_project_root) not in sys.path:
+        print(f"INFO: Adding RVT project root to sys.path: {rvt_project_root}")
+        sys.path.insert(0, str(rvt_project_root))
+    from data.utils.representations import StackedHistogram
+    
+    height, width = resolution    
+    event_representation_generator = StackedHistogram(
+        bins=num_time_bins, 
+        height=height, 
+        width=width,
+        fastmode=True
+    )
+    
+    x = torch.from_numpy(np.copy(events['x']).astype(np.int64))
+    y = torch.from_numpy(np.copy(events['y']).astype(np.int64))
+    p = torch.from_numpy(np.copy(events['polarity']).astype(np.int64))
+    t = torch.from_numpy(np.copy(events['timestamp']).astype(np.int64))
+
+    ev_repr_flat = event_representation_generator.construct(x=x, y=y, pol=p, time=t)
+    ev_repr_flat = ev_repr_flat.to(device).to(torch.float32)
+    
+    return ev_repr_flat
+
 # --- 2. Main dispatcher (Factory) ---
 
 # Use a dictionary to map strings to functions instead of if/elif chains
@@ -87,7 +121,8 @@ REPRESENTATION_MAP = {
     "VoxelGridComplex": create_complex_voxel_grid,
     "VisEvent": create_visual_frame,
     # You can easily add new representation methods here without modifying the main function below
-    # "TimeSurface": create_time_surface, 
+    # "TimeSurface": create_time_surface,
+    "StackedHistogram_from_RVT": create_stacked_histogram_from_rvt,
 }
 
 def events_to_representation(

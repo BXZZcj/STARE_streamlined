@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import List, Dict, Any
 from collections import defaultdict
 
-from stare.data.demo_dataset import TestcaseDataset
-from stare.models.demo_tracker import DemoTracker
+from stare.data import *
+from stare.models import *
 from stare.core.stare import STARE
 
 
@@ -55,11 +55,11 @@ def main(args):
     experiment_id = get_experiment_id(config)
 
     # 2. Prepare data
-    dataset = TestcaseDataset(dataset_path = config["dataset"]["path"])
+    dataset = eval(config["dataset"]["class_name"])(dataset_path = config["dataset"]["path"])
 
     # 3. Prepare model
     # (Here we can use a factory pattern to dynamically create models based on config)
-    model = DemoTracker(
+    model = eval(config["model"]["class_name"])(
         event_repr_config = config["model"]["representation"],
         evs_height = config["dataset"]["evs_height"], 
         evs_width = config["dataset"]["evs_width"], 
@@ -86,6 +86,8 @@ def main(args):
         
         # Save predictions
         with open(seq_result_path / "predictions.json", "w") as f:
+            for output in outputs_with_timestamps:
+                output["output"] = output["output"].tolist()
             json.dump(outputs_with_timestamps, f, indent=4)
         
         metrics_config_list = config["stare_params"]["metrics"]

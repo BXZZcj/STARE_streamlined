@@ -4,6 +4,9 @@ import torch
 
 class BasePerceptionModel(ABC):
     """Abstract base class for all perception models"""
+    @abstractmethod
+    def __init__(self, event_repr_config: dict, evs_height: int, evs_width: int, checkpoint_path: str):
+        pass
     
     @abstractmethod
     def initialize(self, evs_repr:torch.Tensor, info:Dict=None)->torch.Tensor:
