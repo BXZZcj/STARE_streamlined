@@ -136,19 +136,81 @@ def calculate_mIoU_for_detection(matched_pairs: List[Tuple[torch.Tensor, torch.T
     
     return float(mean_iou)
 
+def calculate_pose_errors(
+    matched_pairs: List[Tuple[torch.Tensor, torch.Tensor]],
+    translation_weight: float = 1.0
+) -> float:
+    """
+    Calculates a single, combined error metric for a list of pose pairs.
+    The metric is a weighted sum of the mean translational and rotational errors.
 
+    Parameters:
+        matched_pairs (list): A list of tuples. Each tuple contains (prediction, ground_truth).
+                           - prediction: A 1D tensor of shape (7,) [x, y, z, qx, qy, qz, qw].
+                           - ground_truth: A 1D tensor of shape (7,) [x, y, z, qx, qy, qz, qw].
+        translation_weight (float): A weight to balance the translational error (in meters)
+                                    against the rotational error (in degrees). 
+                                    A weight of 10 means 0.1m error is considered as
+                                    severe as a 1-degree error.
+
+    Returns:
+        float: A single combined error score. Lower is better.
+    """
+    if not matched_pairs:
+        return 0.0
+
+    # --- 1. Stack tensors for batch processing ---
+    predictions = torch.stack([pair[0] for pair in matched_pairs])
+    ground_truths = torch.stack([pair[1] for pair in matched_pairs])
+
+    device = predictions.device
+    ground_truths = ground_truths.to(device=device, dtype=torch.float32)
+    predictions = predictions.to(dtype=torch.float32)
+
+    # --- 2. Calculate Mean Translational Error ---
+    pos_pred = predictions[:, :3]
+    pos_gt = ground_truths[:, :3]
+    translation_errors = torch.norm(pos_pred - pos_gt, dim=1)
+    mean_translation_error = torch.mean(translation_errors).item()
+
+    # --- 3. Calculate Mean Rotational Error ---
+    quat_pred = predictions[:, 3:]
+    quat_gt = ground_truths[:, 3:]
+    
+    quat_pred = quat_pred / torch.norm(quat_pred, dim=1, keepdim=True)
+    quat_gt = quat_gt / torch.norm(quat_gt, dim=1, keepdim=True)
+
+    quat_gt_inv = quat_gt.clone()
+    quat_gt_inv[:, :3] *= -1 
+
+    w1, x1, y1, z1 = quat_pred[:, 3], quat_pred[:, 0], quat_pred[:, 1], quat_pred[:, 2]
+    w2, x2, y2, z2 = quat_gt_inv[:, 3], quat_gt_inv[:, 0], quat_gt_inv[:, 1], quat_gt_inv[:, 2]
+    
+    q_rel_w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+
+    angular_distance_rad = 2 * torch.acos(torch.clamp(torch.abs(q_rel_w), -1.0, 1.0))
+    
+    rotation_errors_deg = angular_distance_rad * (180.0 / np.pi)
+    mean_rotation_error_deg = torch.mean(rotation_errors_deg).item()
+
+    # --- 4. Combine errors into a single metric ---
+    combined_error = (mean_translation_error * translation_weight) + mean_rotation_error_deg
+    
+    return float(combined_error)
+    
 
 METRIC_MAP = {
     "calculate_iou_for_bbox": calculate_iou_for_bbox,
     # You can easily add new metric functions here
     # "Recall": calculate_recall,
     "calculate_mIoU_for_detection": calculate_mIoU_for_detection,
+    "calculate_pose_errors": calculate_pose_errors,
 }
 
 def calculate_metric(
-    matched_pairs: List[Tuple[List[float], List[float]]],
+    matched_pairs: List[Tuple[torch.Tensor, torch.Tensor]],
     metric_configs: List[Dict[str, Any]]
-) -> List[float]:
+) -> List:
     metric_results = []
     for metric_config in metric_configs:
         metric_type = metric_config.get("type")

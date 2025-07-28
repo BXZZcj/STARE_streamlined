@@ -7,7 +7,7 @@ import torch
 from .base_dataset import BaseDataset
 
 
-class TestRVT_Dataset(BaseDataset):
+class DemoRVTDataset(BaseDataset):
     def __init__(self, dataset_path:str):
         super().__init__(dataset_path)
         

@@ -1,2 +1,3 @@
 from .demo_tracker import DemoTracker
-from .rvt import RVT
+from .demo_rvt import DemoRVT
+from .demo_devo import DemoDEVO

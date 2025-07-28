@@ -10,15 +10,15 @@ class DemoTracker(BasePerceptionModel):
     """
     This is a simple demo tracker that is used to test the framework.
     """
-    def __init__(self, event_repr_config: dict, evs_height: int, evs_width: int, checkpoint_path: str):
-        super().__init__(event_repr_config, evs_height, evs_width, checkpoint_path)
+    def __init__(self, config: dict, evs_height: int, evs_width: int, checkpoint_path: str):
+        super().__init__(config, evs_height, evs_width, checkpoint_path)
         
         # This class is just a demo, so we don't need to load a model
         checkpoint_path = None
         self.checkpoint_path = checkpoint_path
         self.model = torch.load(checkpoint_path) if checkpoint_path is not None else lambda x, y: torch.tensor([0,0,1,1])
         
-        self.event_repr_config = event_repr_config
+        self.event_repr_config = config["model"]["representation"]
         self.evs_height = evs_height
         self.evs_width = evs_width
         

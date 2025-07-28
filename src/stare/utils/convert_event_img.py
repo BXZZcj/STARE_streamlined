@@ -113,6 +113,78 @@ def create_stacked_histogram_from_rvt(
     
     return ev_repr_flat
 
+def create_voxel_grid_from_devo(
+    events: np.ndarray, 
+    resolution: Tuple[int, int],
+    device: torch.device,
+    num_bins: int = 5,
+    remapping_maps: np.ndarray = None
+) -> torch.Tensor:
+    """
+    the version of `to_voxel_grid` (from DEVO source code) that directly receives (N, 4) event array.
+    this version keeps the original code's simple style and implementation logic.
+
+    Args:
+        events (np.ndarray): the input (N, 4) event slice (x, y, t, p).
+        H, W (int): the height and width of the voxel grid.
+        nb_of_time_bins (int): the number of time bins (channels).
+        remapping_maps (np.ndarray, optional): the remapping maps.
+
+    Returns:
+        torch.Tensor: the voxel grid of shape (num_bins, H, W).
+    """
+    # if the event stream is empty, return an empty grid
+    if events.shape[0] == 0:
+        return torch.zeros(num_bins, *resolution, dtype=torch.float32)
+
+    xs = events[:]['x']
+    ys = events[:]['y']
+    ts = events[:]['timestamp']
+    ps = events[:]['polarity']
+
+    voxel_grid = torch.zeros(num_bins, *resolution, dtype=torch.float32)
+    voxel_grid_flat = voxel_grid.flatten()
+    
+    ps = ps.astype(np.int8)
+    ps[ps == 0] = -1
+
+    # Convert timestamps to [0, nb_of_time_bins] range.
+    duration = ts[-1] - ts[0] + 1e-6
+    start_timestamp = ts[0]
+    
+    # note: the original code has a little bit of inefficiency (stack then unpack), but we keep it for the sake of original code.
+    features = torch.from_numpy(np.stack([xs.astype(np.float32), ys.astype(np.float32), ts, ps], axis=1))
+    x = features[:, 0]
+    y = features[:, 1]
+    polarity = features[:, 3].float()
+    t = (features[:, 2] - start_timestamp) * (num_bins - 1) / duration
+    t = t.to(torch.float64)
+
+    if remapping_maps is not None:
+        remapping_maps = torch.from_numpy(remapping_maps)
+        x_idx = x.round().long().clamp(0, resolution[1]-1)
+        y_idx = y.round().long().clamp(0, resolution[0]-1)
+        remapped = remapping_maps[:, y_idx, x_idx]
+        x, y = remapped[0], remapped[1]
+
+    left_t, right_t = t.floor(), t.floor()+1
+    left_x, right_x = x.floor(), x.floor()+1
+    left_y, right_y = y.floor(), y.floor()+1
+
+    for lim_x in [left_x, right_x]:
+        for lim_y in [left_y, right_y]:
+            for lim_t in [left_t, right_t]:
+                mask = (0 <= lim_x) & (0 <= lim_y) & (0 <= lim_t) & (lim_x < resolution[1]) \
+                       & (lim_y < resolution[0]) & (lim_t < num_bins)
+
+                if not torch.any(mask): continue
+                
+                lin_idx = lim_x[mask].long() + lim_y[mask].long() * resolution[1] + lim_t[mask].long() * resolution[1] * resolution[0]
+                weight = polarity[mask] * (1-(lim_x[mask]-x[mask]).abs()) * (1-(lim_y[mask]-y[mask]).abs()) * (1-(lim_t[mask]-t[mask]).abs())
+                voxel_grid_flat.index_add_(dim=0, index=lin_idx, source=weight.float())
+
+    return voxel_grid
+
 # --- 2. Main dispatcher (Factory) ---
 
 # Use a dictionary to map strings to functions instead of if/elif chains
@@ -123,6 +195,7 @@ REPRESENTATION_MAP = {
     # You can easily add new representation methods here without modifying the main function below
     # "TimeSurface": create_time_surface,
     "StackedHistogram_from_RVT": create_stacked_histogram_from_rvt,
+    "VoxelGrid_from_DEVO": create_voxel_grid_from_devo,
 }
 
 def events_to_representation(

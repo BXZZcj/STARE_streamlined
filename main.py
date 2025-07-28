@@ -60,7 +60,7 @@ def main(args):
     # 3. Prepare model
     # (Here we can use a factory pattern to dynamically create models based on config)
     model = eval(config["model"]["class_name"])(
-        event_repr_config = config["model"]["representation"],
+        config = config,
         evs_height = config["dataset"]["evs_height"], 
         evs_width = config["dataset"]["evs_width"], 
         checkpoint_path = config["model"]["checkpoint"]
@@ -132,7 +132,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("--config_path", type=str, default="src/stare/configs/demo_vot.yaml")
+    parser.add_argument("--config_path", type=str, default="src/stare/configs/demo_rvt.yaml")
     args = parser.parse_args()
     
     main(args)

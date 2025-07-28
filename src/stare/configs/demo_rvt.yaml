@@ -8,7 +8,7 @@ rvt_project_root: &project_root "/mnt/f1590153-780c-408d-b394-7b3b56082548/ESOT5
 # Task and model configuration
 task: "RVT Detection"
 model:
-  class_name: "RVT"
+  class_name: "DemoRVT"
   checkpoint: "/mnt/f1590153-780c-408d-b394-7b3b56082548/ESOT500/RVT/checkpoints/rvt-t.ckpt"
 
   # This block defines how to convert raw events into the format this specific model requires.
@@ -19,10 +19,12 @@ model:
       num_time_bins: 10 # Number of temporal bins for VoxelGrid
       rvt_project_root: *project_root
 
+  rvt_project_root: *project_root
+
 # Dataset configuration
 dataset:
   path: "/mnt/f1590153-780c-408d-b394-7b3b56082548/ESOT500/STARE/test_case_rvt"
-  class_name: "TestRVT_Dataset"
+  class_name: "DemoRVTDataset"
   evs_height: 260
   evs_width: 346
 

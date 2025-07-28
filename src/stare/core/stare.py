@@ -97,7 +97,7 @@ class STARE:
             event_segment = self._get_events_by_duration(evs=event_stream, ts_start_sec=ts_start_sec, ts_end_sec=ts_end_sec)
 
             # (2) Inference: perform one prediction and return real inference time
-            output = self.model.predict(event_segment, info={"last_output": last_output})
+            output = self.model.predict(event_segment, info={"last_output": last_output, "input_ts_sec": ts_end_sec})
             predict_end_time = time.perf_counter()
             real_predict_latency = predict_end_time - predict_start_time
             
@@ -159,6 +159,6 @@ class STARE:
                 pass
 
         # Compute metrics on the matched pairs
-        eval_results:List[float] = calculate_metric(matched_pairs, metric_configs=self.config["metrics"])
+        eval_results:List = calculate_metric(matched_pairs, metric_configs=self.config["metrics"])
         
         return eval_results
