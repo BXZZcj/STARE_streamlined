@@ -132,7 +132,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("--config_path", type=str, default="src/stare/configs/demo_rvt.yaml")
+    parser.add_argument("--config_path", type=str, default="src/stare/configs/demo_vot.yaml")
     args = parser.parse_args()
     
     main(args)
