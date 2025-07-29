@@ -56,5 +56,24 @@ The steps to run this test case are as follows:
 
 To demonstrate how to integrate tasks other than object tracking, we have also tested the event-based object detection model [RVT](https://github.com/uzh-rpg/RVT) and the event-based odometry model [DEVO](https://github.com/tum-vision/DEVO?tab=readme-ov-file). You can switch to the following branches in the current repository to view them:
 
-1.  RVT: `git checkout demo_rvt`
-2.  DEVO: `git checkout demo_devo`
+1.  RVT: `git switch demo_rvt`
+2.  DEVO: `git switch demo_devo`
+
+<br><br>
+
+## Support
+
+**If you encounter any issues while using our code or dataset, please feel free to contact us.**
+
+<br><br>
+
+## License
+
+- The released code is under [GPL-3.0 license](https://www.gnu.org/licenses/gpl-3.0.en.html) following the [DEVO](https://github.com/tum-vision/DEVO).
+- The released test case dataset is under [CC-BY 4.0 license](https://creativecommons.org/licenses/by/4.0/).
+
+<br><br>
+
+## Acknowledgments
+
+- Thanks for the great works including [RVT](https://github.com/uzh-rpg/RVT) and [DEVO](https://github.com/tum-vision/DEVO).
