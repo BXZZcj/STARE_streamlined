@@ -36,6 +36,86 @@ def calculate_iou_for_bbox(matched_pairs: List[Tuple[torch.Tensor, torch.Tensor]
     return float(mean_iou)
 
 
+def calculate_auc_for_bbox(matched_pairs: List[Tuple[torch.Tensor, torch.Tensor]]) -> float:
+    """
+    Calculate the Area Under the Curve (AUC) for a single tracking sequence.
+
+    This function receives a list of matched pairs of predicted and ground truth bounding box tensors.
+    The AUC is calculated by measuring the proportion of successfully tracked frames over a range of Intersection over Union (IoU) thresholds.
+
+    Parameters:
+        matched_pairs (List[Tuple[torch.Tensor, torch.Tensor]]):
+            A list of tuples, each containing (pred_bbox_tensor, gt_bbox_tensor).
+            The bounding box format is assumed to be [x, y, w, h, ...].
+
+    Returns:
+        float: AUC score, a value between 0.0 and 100.0.
+    """
+    # --- Edge case handling ---
+    if not matched_pairs:
+        return 0.0
+
+    # --- Step 1: Extract and prepare data from the input list ---
+    # Use list comprehension and torch.stack to efficiently create [N, 4] tensors
+    pred_boxes = torch.stack([pair[0][:4] for pair in matched_pairs])
+    gt_boxes = torch.stack([pair[1][:4] for pair in matched_pairs])
+    
+    # Ensure tensors are on the same device (e.g., move both to CPU)
+    # You can omit this step if you are sure they are already on the same device
+    device = pred_boxes.device
+    gt_boxes = gt_boxes.to(device)
+
+
+    # --- Step 2: Calculate IoU for each frame in a vectorized manner ---
+    # Convert [x, y, w, h] format to [x1, y1, x2, y2] format
+    pred_x1y1 = pred_boxes[:, :2]
+    pred_x2y2 = pred_boxes[:, :2] + pred_boxes[:, 2:]
+    gt_x1y1 = gt_boxes[:, :2]
+    gt_x2y2 = gt_boxes[:, :2] + gt_boxes[:, 2:]
+
+    # Calculate the coordinates of the intersection
+    inter_x1y1 = torch.max(pred_x1y1, gt_x1y1)
+    inter_x2y2 = torch.min(pred_x2y2, gt_x2y2)
+
+    # Calculate the area of the intersection
+    # clamp(min=0) ensures width and height are 0 when bounding boxes do not overlap
+    inter_wh = (inter_x2y2 - inter_x1y1).clamp(min=0)
+    intersection_area = inter_wh[:, 0] * inter_wh[:, 1]
+
+    # Calculate the area of the union
+    pred_area = pred_boxes[:, 2] * pred_boxes[:, 3]
+    gt_area = gt_boxes[:, 2] * gt_boxes[:, 3]
+    union_area = pred_area + gt_area - intersection_area
+
+    # Calculate IoU scores and handle cases where the denominator is zero
+    # Add a small value eps to avoid division by zero
+    eps = 1e-7
+    ious = intersection_area / (union_area + eps)
+
+
+    # --- Step 3: Define IoU thresholds ---
+    # Standard thresholds from 0.0 to 1.0 with a step of 0.05
+    thresholds = torch.arange(0.0, 1.05, 0.05, device=device)
+
+
+    # --- Step 4: Calculate success rate for each threshold (success curve) ---
+    # Use broadcasting to compare all ious with all thresholds at once
+    # ious shape: [N], unsqueeze(1) -> [N, 1]
+    # thresholds shape: [M], unsqueeze(0) -> [1, M]
+    # The comparison results in a boolean matrix success_matrix with shape [N, M]
+    success_matrix = ious.unsqueeze(1) > thresholds.unsqueeze(0)
+
+    # Calculate the mean along the frame dimension (dim=0) to get the success rate for each threshold
+    success_curve = success_matrix.float().mean(dim=0)
+
+
+    # --- Step 5: Calculate AUC (mean of the success curve) ---
+    # Multiply the result by 100 to make it range from 0 to 100
+    auc = success_curve.mean().item() * 100.0
+
+    return auc
+
+
 def intersection_over_union(boxes_preds: torch.Tensor, boxes_labels: torch.Tensor) -> torch.Tensor:
     """
     Calculates intersection over union for every pred bbox vs every ground truth bbox.
@@ -201,6 +281,7 @@ def calculate_pose_errors(
 
 METRIC_MAP = {
     "calculate_iou_for_bbox": calculate_iou_for_bbox,
+    "calculate_auc_for_bbox": calculate_auc_for_bbox,
     # You can easily add new metric functions here
     # "Recall": calculate_recall,
     "calculate_mIoU_for_detection": calculate_mIoU_for_detection,

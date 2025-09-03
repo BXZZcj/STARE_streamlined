@@ -5,11 +5,13 @@ import numpy as np
 from stare.models.base_model import BasePerceptionModel
 from stare.utils.convert_event_img import *
 from stare.core.metrics import calculate_metric
+from stare.data import BaseDataset
 
 
 class STARE:
-    def __init__(self, model: BasePerceptionModel, config):
+    def __init__(self, model: BasePerceptionModel, dataset: BaseDataset, config):
         self.model = model
+        self.dataset = dataset
         self.config = config
         self.sim_config = self.config['hardware_simulator']
 
@@ -40,12 +42,12 @@ class STARE:
             raise ValueError(f"Unknown simulator mode: {mode}")
         
         
-    def _get_events_by_duration(self, evs:np.ndarray, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
-        return evs[(evs['timestamp']/1e6 >= ts_start_sec) & (evs['timestamp']/1e6 <= ts_end_sec)]
+    # def _get_events_by_duration(self, evs:np.ndarray, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
+    #     return evs[(evs['timestamp']/1e6 >= ts_start_sec) & (evs['timestamp']/1e6 <= ts_end_sec)]
     
     
-    def _get_events_duration_sec(self, evs:np.ndarray)->float:
-        return (evs[-1]['timestamp'] - evs[0]['timestamp'])/1e6
+    # def _get_events_duration_sec(self, evs:np.ndarray)->float:
+    #     return (evs[-1]['timestamp'] - evs[0]['timestamp'])/1e6
     
     
     def _find_gt_for_init(self, ground_truth:List[Dict], init_sampling_window_ms:float)->Tuple:
@@ -56,23 +58,23 @@ class STARE:
         return None, None
 
 
-    def run(self, event_stream:np.ndarray, ground_truth:List[Dict])->List[Dict]:
+    def run(self, sequence_name:str, ground_truth:List[Dict])->List[Dict]:
         """Main evaluation loop of STARE (Continuous Sampling & Time Advancement)"""
         
         world_time_sec = self.config['sampling_window_ms']/1000.0
         last_output = None
-        evs_duration_sec = self._get_events_duration_sec(event_stream)
+        evs_duration_sec = self.dataset.get_events_duration_sec(sequence_name)
         outputs_with_timestamps = []
         
         # 1. Initialization
         init_start_time = time.perf_counter()
         if self.config["initialization"]["enabled"]:
-            initial_events = self._get_events_by_duration(event_stream, 0, self.config["initialization"]['sampling_window_ms'])
+            initial_input = self.dataset.get_init_input_by_regular_duration(sequence_name, 0, self.config["initialization"]['sampling_window_ms'])
             gt_ts_for_init, gt_annot_for_init = self._find_gt_for_init(ground_truth, self.config["initialization"]['sampling_window_ms'])
-            info_for_init = self.config["initialization"]
+            info_for_init = dict(self.config["initialization"])
             info_for_init["gt_ts_for_init"] = gt_ts_for_init
             info_for_init["gt_annot_for_init"] = gt_annot_for_init.tolist()
-            initial_output = self.model.initialize(events = initial_events, info = info_for_init)
+            initial_output = self.model.initialize(init_input = initial_input, info = info_for_init)
             
             if initial_output is not None:
                 outputs_with_timestamps.append({
@@ -94,10 +96,10 @@ class STARE:
             # (1) Sampling: get data from the event stream based on current world time and window size
             ts_start_sec = world_time_sec-self.config['sampling_window_ms']/1000.0
             ts_end_sec = world_time_sec
-            event_segment = self._get_events_by_duration(evs=event_stream, ts_start_sec=ts_start_sec, ts_end_sec=ts_end_sec)
+            step_input = self.dataset.get_step_input_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
 
             # (2) Inference: perform one prediction and return real inference time
-            output = self.model.predict(event_segment, info={"last_output": last_output, "input_ts_sec": ts_end_sec})
+            output = self.model.predict(step_input, info={"last_output": last_output, "input_ts_sec": ts_end_sec})
             predict_end_time = time.perf_counter()
             real_predict_latency = predict_end_time - predict_start_time
             

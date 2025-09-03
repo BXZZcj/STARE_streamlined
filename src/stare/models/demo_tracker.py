@@ -22,13 +22,13 @@ class DemoTracker(BasePerceptionModel):
         self.evs_height = evs_height
         self.evs_width = evs_width
         
-    def initialize(self, events:np.ndarray, info: Dict)->torch.Tensor:
-        evs_repr = self._get_representation(events)
+    def initialize(self, init_input:np.ndarray, info: Dict)->torch.Tensor:
+        evs_repr = self._get_representation(init_input)
         return torch.tensor(info["gt_annot_for_init"])
 
-    def predict(self, events:np.ndarray, info: Dict)->torch.Tensor:
-        evs_repr = self._get_representation(events)
-        return self.model(events, info)
+    def predict(self, step_input:np.ndarray, info: Dict)->torch.Tensor:
+        evs_repr = self._get_representation(step_input)
+        return self.model(step_input, info)
     
     def _get_representation(self, events: np.ndarray)->torch.Tensor:
         return events_to_representation(events, self.event_repr_config, (self.evs_height, self.evs_width))

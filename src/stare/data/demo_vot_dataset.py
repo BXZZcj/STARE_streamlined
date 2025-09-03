@@ -17,15 +17,54 @@ class DemoVOTDataset(BaseDataset):
     def get_sequence_list(self):
         return self.sequence_list
     
-    def get_sequence_events(self, sequence_name)->np.ndarray:
+    def _get_sequence_events(self, sequence_name)->np.ndarray:
+        if self.cur_loaded_seq_events_name == sequence_name:
+            return self.current_loaded_seq_events
+        else:
+            self.cur_loaded_seq_events_name = sequence_name
+        
         aedat4_path = os.path.join(self.dataset_path, "aedat4", f'{sequence_name}.aedat4')
         
         with AedatFile(aedat4_path) as f:
-            events = np.hstack([packet for packet in f['events'].numpy()])
-            events['timestamp'] = events['timestamp'] - events['timestamp'][0]
+            self.current_loaded_seq_events = np.hstack([packet for packet in f['events'].numpy()])
+            # self.events_start_ts_hs = self.events['timestamp'][0]
+            # self.events['timestamp'] = self.events['timestamp'] - self.events_start_ts_hs
             
-        return events
+        return self.current_loaded_seq_events
+
+    def _get_sequence_rgb(self, sequence_name)->np.ndarray:
+        if self.cur_loaded_seq_rgb_name == sequence_name:
+            return self.current_loaded_seq_frames
+        else:
+            self.cur_loaded_seq_rgb_name = sequence_name
+        
+        aedat4_path = os.path.join(self.dataset_path, "aedat4", f'{sequence_name}.aedat4')
+        
+        with AedatFile(aedat4_path) as f:
+            self.current_loaded_seq_frames = []
+            for frame in f["frames"]:
+                self.current_loaded_seq_frames.append([frame.timestamp, frame.image])
+            
+        return self.current_loaded_seq_frames
+
     
+    def get_events_duration_sec(self, sequence_name:str)->float:
+        events = self._get_sequence_events(sequence_name)
+        return (events[-1]['timestamp'] - events[0]['timestamp'])/1e6
+
+    def _get_events_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
+        events = self._get_sequence_events(sequence_name)
+        evs_start_ts_sec = events[0]["timestamp"]/1e6
+        actual_ts_start_sec = ts_start_sec+evs_start_ts_sec
+        actual_ts_end_sec = ts_end_sec+evs_start_ts_sec
+        return events[(events['timestamp']/1e6 >= actual_ts_start_sec) & (events['timestamp']/1e6 <= actual_ts_end_sec)]
+
+    def get_step_input_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
+        return self._get_events_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
+    
+    def get_init_input_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
+        return self._get_events_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
+
     def get_sequence_gt(self, sequence_name:str)->List[Dict]:
         gt_path = os.path.join(self.dataset_path, "annots", f'{sequence_name}.txt')
         ground_truth = []
