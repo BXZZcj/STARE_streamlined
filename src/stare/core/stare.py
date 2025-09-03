@@ -69,8 +69,16 @@ class STARE:
         # 1. Initialization
         init_start_time = time.perf_counter()
         if self.config["initialization"]["enabled"]:
-            initial_input = self.dataset.get_init_input_by_regular_duration(sequence_name, 0, self.config["initialization"]['sampling_window_ms'])
-            gt_ts_for_init, gt_annot_for_init = self._find_gt_for_init(ground_truth, self.config["initialization"]['sampling_window_ms'])
+            init_sampling_window_ms = self.config["initialization"]['sampling_window_ms']
+            if self.config["initialization"]["initialize_timestamp"] == "same_as_window":
+                initialize_timestamp_ms = init_sampling_window_ms
+            elif self.config["initialization"]["initialize_timestamp"] == "earlist_rgb_frame":
+                initialize_timestamp_ms = self.dataset.get_earlist_aval_rgb_regular_ts_sec(sequence_name, init_sampling_window_ms)*1e3
+            else:
+                raise ValueError(f"Unknown initialize_timestamp mode: {self.config['initialization']['initialize_timestamp']}")
+
+            initial_input = self.dataset.get_init_input_by_regular_duration(sequence_name = sequence_name, ts_start_sec=initialize_timestamp_ms/1e3-init_sampling_window_ms/1e3, ts_end_sec=initialize_timestamp_ms/1e3)
+            gt_ts_for_init, gt_annot_for_init = self._find_gt_for_init(ground_truth, initialize_timestamp_ms)
             info_for_init = dict(self.config["initialization"])
             info_for_init["gt_ts_for_init"] = gt_ts_for_init
             info_for_init["gt_annot_for_init"] = gt_annot_for_init.tolist()

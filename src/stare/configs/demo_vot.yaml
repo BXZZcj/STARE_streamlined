@@ -31,6 +31,9 @@ stare_params:
   initialization:
     # Enable initialization step for stateful models (e.g., set to false for stateless detectors)
     enabled: true
+    # Mode: same_as_window, earlist_rgb_frame   
+    # If this perception model is cross-modality, choose "earlist_rgb_frame"
+    initialize_timestamp : same_as_window
     # Event sampling window size (in milliseconds) for model initialization.
     # STARE will provide all events from t=0 up to this time point to model.initialize()
     sampling_window_ms: 50
