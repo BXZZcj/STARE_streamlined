@@ -1,9 +1,9 @@
-﻿import time
+﻿﻿import time
 from typing import Dict, Callable, List, Tuple, Optional
 import numpy as np
 
 from stare.models.base_model import BasePerceptionModel
-from stare.utils.convert_event_img import *
+from stare.utils.convert_event_repr import *
 from stare.core.metrics import calculate_metric
 from stare.data import BaseDataset
 
@@ -62,7 +62,6 @@ class STARE:
         """Main evaluation loop of STARE (Continuous Sampling & Time Advancement)"""
         
         world_time_sec = self.config['sampling_window_ms']/1000.0
-        last_output = None
         evs_duration_sec = self.dataset.get_events_duration_sec(sequence_name)
         outputs_with_timestamps = []
         
@@ -71,7 +70,7 @@ class STARE:
         if self.config["initialization"]["enabled"]:
             init_sampling_window_ms = self.config["initialization"]['sampling_window_ms']
             if self.config["initialization"]["initialize_timestamp"] == "same_as_window":
-                initialize_timestamp_ms = init_sampling_window_ms
+                initialize_timestamp_ms = self.dataset.get_earlist_aval_init_input_exact_ts_sec(sequence_name, init_sampling_window_ms)*1e3
             elif self.config["initialization"]["initialize_timestamp"] == "earlist_rgb_frame":
                 initialize_timestamp_ms = self.dataset.get_earlist_aval_rgb_regular_ts_sec(sequence_name, init_sampling_window_ms)*1e3
             else:
@@ -82,8 +81,8 @@ class STARE:
             info_for_init = dict(self.config["initialization"])
             info_for_init["gt_ts_for_init"] = gt_ts_for_init
             info_for_init["gt_annot_for_init"] = gt_annot_for_init.tolist()
+
             initial_output = self.model.initialize(init_input = initial_input, info = info_for_init)
-            
             if initial_output is not None:
                 outputs_with_timestamps.append({
                     'output': initial_output,
@@ -91,7 +90,6 @@ class STARE:
                 })
         
             world_time_sec = gt_ts_for_init
-            last_output = gt_annot_for_init
         
         init_end_time = time.perf_counter()
         real_init_latency = init_end_time - init_start_time
@@ -99,15 +97,17 @@ class STARE:
         world_time_sec += simulated_init_latency
         
         # 2. Continuous sampling and evaluation loop
+        step_idx = 0
         while world_time_sec < evs_duration_sec:
             predict_start_time = time.perf_counter()
             # (1) Sampling: get data from the event stream based on current world time and window size
             ts_start_sec = world_time_sec-self.config['sampling_window_ms']/1000.0
             ts_end_sec = world_time_sec
             step_input = self.dataset.get_step_input_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
-
+            
             # (2) Inference: perform one prediction and return real inference time
-            output = self.model.predict(step_input, info={"last_output": last_output, "input_ts_sec": ts_end_sec})
+            output = self.model.predict(step_input, info={"input_ts_sec": ts_end_sec})
+            step_idx += 1
             predict_end_time = time.perf_counter()
             real_predict_latency = predict_end_time - predict_start_time
             
@@ -122,9 +122,7 @@ class STARE:
                 'output': output,
                 'timestamp': world_time_sec 
             })
-            
-            last_output = output  # Update state
-
+        
         return outputs_with_timestamps
 
     def evaluate(

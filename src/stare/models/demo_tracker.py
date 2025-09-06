@@ -1,9 +1,9 @@
-﻿import torch
+﻿﻿import torch
 import numpy as np
 from typing import List, Dict
 
 from .base_model import BasePerceptionModel
-from stare.utils.convert_event_img import *
+from stare.utils.convert_event_repr import *
 
 
 class DemoTracker(BasePerceptionModel):

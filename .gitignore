@@ -70,11 +70,11 @@ logs/
 # My custom
 libs/
 test/
-src/stare/models/hdetrack.py
-src/stare/models/mamba_fetrackV2.py
-src/stare/data/esot500_dataset.py
-src/stare/data/esot500_dataset_rgbe.py
-src/stare/data/esot500_dataset_traditional_20fps20ms.py
-src/stare/configs/hdetrack_config.yaml
-src/stare/configs/mamba_fetrackV2_config.yaml
-src/stare/configs/hdetrack_traditional_20fps20ms.yaml
+# src/stare/models/hdetrack.py
+# src/stare/models/mamba_fetrackV2.py
+# src/stare/data/esot500_dataset.py
+# src/stare/data/esot500_dataset_rgbe.py
+# src/stare/data/esot500_dataset_traditional_20fps20ms.py
+# src/stare/configs/hdetrack_config.yaml
+# src/stare/configs/mamba_fetrackV2_config.yaml
+# src/stare/configs/hdetrack_traditional_20fps20ms.yaml

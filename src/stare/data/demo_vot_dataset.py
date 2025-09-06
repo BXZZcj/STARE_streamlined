@@ -1,4 +1,4 @@
-﻿import os
+﻿﻿import os
 import numpy as np
 from dv import AedatFile
 from typing import List, Dict
@@ -64,6 +64,13 @@ class DemoVOTDataset(BaseDataset):
     
     def get_init_input_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
         return self._get_events_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
+
+    def get_earlist_aval_init_input_exact_ts_sec(self, sequence_name:str, init_sampling_window_ms:float)->float:
+        gt = self.get_sequence_gt(sequence_name)
+        for gt_item in gt:
+            if gt_item["timestamp"] >= init_sampling_window_ms/1000.0:
+                return gt_item["timestamp"]
+        return None
 
     def get_sequence_gt(self, sequence_name:str)->List[Dict]:
         gt_path = os.path.join(self.dataset_path, "annots", f'{sequence_name}.txt')
