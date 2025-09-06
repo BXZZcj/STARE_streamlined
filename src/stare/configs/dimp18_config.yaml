@@ -1,0 +1,81 @@
+﻿# A unique identifier for this experimental run.
+# If set to 'auto', a timestamp-based ID will be generated.
+# e.g., "demo_run_with_voxelgrid"
+experiment_id: "auto"
+
+# Task and model configuration
+task: "VOT"
+model:
+  class_name: "DIMP18"
+  checkpoint: null
+
+  # This block defines how to convert raw events into the format this specific model requires.
+  representation:
+    type: "VoxelGridComplex" # The name of the representation, e.g., 'VoxelGrid', 'TimeSurface', 'VoxelGridComplex'
+    # Parameters specific to the chosen representation type
+    params:
+      num_bins: 3 # Number of temporal bins for VoxelGrid
+      temporal_bilinear: true # Use temporal bilinear interpolation or not
+      # The resolution could be specified here if the model requires a fixed input size
+      # resolution: [260, 346]
+
+# Dataset configuration
+dataset:
+  path: "/home/zongyouyu/nc/ESOT500"
+  class_name: "ESOT500Dataset"
+  evs_height: 260
+  evs_width: 346
+
+# STARE core configuration
+stare_params:
+  initialization:
+    # Enable initialization step for stateful models (e.g., set to false for stateless detectors)
+    enabled: true
+    # Mode: same_as_window, earlist_rgb_frame    
+    # If this perception model is cross-modality, choose "earlist_rgb_frame"
+    initialize_timestamp : same_as_window
+    # Event sampling window size (in milliseconds) for model initialization.
+    # STARE will provide all events from t=0 up to this time point to model.initialize()
+    sampling_window_ms: 20
+
+  # Continuous sampling window size (ms)
+  sampling_window_ms: 20
+  # Hardware simulator configuration
+  hardware_simulator:
+    initialize:
+      # Mode: 'real' (real latency), 'fixed' (fixed latency), 'multiplier' (scaled latency)
+      mode: "fixed"
+      # If mode is 'multiplier', real latency * 0.5 (simulate faster hardware)
+      # latency_multiplier: 0.5
+      # If mode is 'fixed', use fixed latency (ms)
+      fixed_latency_ms: 56
+    predict:
+      # Mode: 'real' (real latency), 'fixed' (fixed latency), 'multiplier' (scaled latency)
+      mode: "fixed"
+      # If mode is 'multiplier', real latency * 0.5 (simulate faster hardware)
+      # latency_multiplier: 0.5
+      # If mode is 'fixed', use fixed latency (ms)
+      fixed_latency_ms: 10
+
+  evaluation:
+    # Define how to handle ground truths before the first model output is produced.
+    # These are queries during system "startup" or "warm-up" phase.
+    provide_default: true # or false
+
+    # If the 'provide_default' is true, this defines the default prediction.
+    # 'initial_gt' means using the first ground truth box used for initialization as the default.
+    # It can also be a specific bbox list, e.g., [0, 0, 0, 0] to indicate invalid.
+    default_output: "initial_gt" # or [x,y,w,h]
+
+  metrics:
+    - type: "calculate_auc_for_bbox"
+      params: null
+
+results:
+  # Main output directory. Placeholders can now be used here, which is very useful
+  # to automatically create subdirectories for each sequence.
+  output_dir: "/home/zongyouyu/nc/STARE_streamlined/test/dimp18_results/{experiment_id}"
+
+  # For each sequence, save results in a dedicated subdirectory.
+  # The {sequence_name} placeholder is also crucial.
+  sequence_subdir: "{sequence_name}"

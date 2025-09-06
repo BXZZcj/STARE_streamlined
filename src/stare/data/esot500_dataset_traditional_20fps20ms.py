@@ -6,8 +6,11 @@ import torch
 
 from .base_dataset import BaseDataset
 
-
-class DemoVOTDataset(BaseDataset):
+class ESOT500DatasetTraditional20FPS20MS(BaseDataset):
+    SAMPLING_WINDOW_MS = 20
+    FPS = 20
+    FRAME_INTERVAL_MS = 1000/FPS
+    
     def __init__(self, dataset_path:str):
         super().__init__(dataset_path)
         
@@ -71,18 +74,32 @@ class DemoVOTDataset(BaseDataset):
             if gt_item["timestamp"] >= init_sampling_window_ms/1000.0:
                 return gt_item["timestamp"]
         return None
-
+        
     def get_sequence_gt(self, sequence_name:str)->List[Dict]:
         gt_path = os.path.join(self.dataset_path, "annots", f'{sequence_name}.txt')
         ground_truth = []
         with open(gt_path, 'r') as f:
-            for line in f:
-                parts = line.split()
+            gt_str_lines = f.readlines()
+
+            for gt_str in gt_str_lines:
+                gt_ts_sec = float(gt_str.split()[0])
+                if gt_ts_sec >= self.SAMPLING_WINDOW_MS/1000:
+                    init_ts_ms = int(gt_ts_sec*1e3)
+                    init_window_left_ms = init_ts_ms - self.FRAME_INTERVAL_MS
+                    break
+                else:
+                    continue
+
+            for gt_str in gt_str_lines[1:]:
+                parts = gt_str.split()
                 timestamp = float(parts[0])
                 bbox = torch.tensor([int(p) for p in parts[1:]])
                 
-                ground_truth.append({
-                    "timestamp": timestamp,
-                    "annot": bbox
-                })
+                if int(timestamp*1e3 - init_window_left_ms)%self.FRAME_INTERVAL_MS != 0:
+                    continue
+                else:
+                    ground_truth.append({
+                        "timestamp": timestamp+self.FRAME_INTERVAL_MS/1000+1e-5,
+                        "annot": bbox
+                    })
         return ground_truth

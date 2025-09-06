@@ -12,10 +12,10 @@ def _prepare_event_tensors(events: np.ndarray, device: torch.device) -> Tuple[to
     Helper function: convert a NumPy structured event array to PyTorch tensors on GPU.
     This is a commonly reused preparation step.
     """
-    xs = torch.from_numpy(events['x']).to(device)
-    ys = torch.from_numpy(events['y']).to(device)
-    ts = torch.from_numpy(events['timestamp']).to(device)
-    ps = torch.from_numpy(events['polarity']).to(device)
+    xs = torch.from_numpy(events['x'].copy().astype(np.int32)).to(device)
+    ys = torch.from_numpy(events['y'].copy().astype(np.int32)).to(device)
+    ts = torch.from_numpy(events['timestamp'].copy()).to(device)
+    ps = torch.from_numpy(events['polarity'].copy()).to(device)
     return xs, ys, ts, ps
 
 def create_voxel_grid(
@@ -185,6 +185,60 @@ def create_voxel_grid_from_devo(
 
     return voxel_grid
 
+
+def create_egt_raw_events(
+    events: np.ndarray, 
+    resolution: Tuple[int, int], 
+    device: torch.device
+) -> torch.Tensor:
+    if not isinstance(events, np.ndarray) or events.shape[0] == 0:
+        return torch.empty((4, 0), dtype=torch.float32)
+
+    height, width = resolution
+
+    egt_raw_events_np = np.stack([
+        events['x'], 
+        events['y'], 
+        events['timestamp'], 
+        events['polarity']
+    ], axis=1).astype(np.float32)
+    
+    egt_raw_events_np[:, 0] = egt_raw_events_np[:, 0] / width
+    egt_raw_events_np[:, 1] = egt_raw_events_np[:, 1] / height
+    if egt_raw_events_np.shape[0] > 0:
+        egt_raw_events_np[:, 2] = egt_raw_events_np[:, 2] - egt_raw_events_np[0, 2] 
+    egt_raw_events_np[:, 2] = egt_raw_events_np[:, 2] / 1e6
+    egt_raw_events_np[:, 3] = egt_raw_events_np[:, 3] * 2 - 1
+    
+    return torch.from_numpy(egt_raw_events_np.transpose()).to(device)
+
+
+def create_egt_raw_events(
+    events: np.ndarray, 
+    resolution: Tuple[int, int], 
+    device: torch.device
+) -> torch.Tensor:
+    if not isinstance(events, np.ndarray) or events.shape[0] == 0:
+        return torch.empty((4, 0), dtype=torch.float32)
+
+    height, width = resolution
+
+    curr_np = np.stack([
+        events['x'], 
+        events['y'], 
+        events['timestamp'], 
+        events['polarity']
+    ], axis=1).astype(np.float32)
+    
+    curr_np[:, 0] = curr_np[:, 0] / width
+    curr_np[:, 1] = curr_np[:, 1] / height
+    if curr_np.shape[0] > 0:
+        curr_np[:, 2] = curr_np[:, 2] - curr_np[0, 2] 
+    curr_np[:, 2] = curr_np[:, 2] / 1e6
+    curr_np[:, 3] = curr_np[:, 3] * 2 - 1
+    
+    return torch.from_numpy(curr_np.transpose()).to(device)
+
 # --- 2. Main dispatcher (Factory) ---
 
 # Use a dictionary to map strings to functions instead of if/elif chains
@@ -196,6 +250,7 @@ REPRESENTATION_MAP = {
     # "TimeSurface": create_time_surface,
     "StackedHistogram_from_RVT": create_stacked_histogram_from_rvt,
     "VoxelGrid_from_DEVO": create_voxel_grid_from_devo,
+    "EGT_raw_events": create_egt_raw_events,
 }
 
 def events_to_representation(

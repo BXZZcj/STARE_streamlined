@@ -1,0 +1,9 @@
+[submodule "libs/Event-tracking"]
+	path = libs/Event-tracking
+	url = https://github.com/ZHU-Zhiyu/Event-tracking.git
+[submodule "libs/EventVOT_Benchmark"]
+	path = libs/EventVOT_Benchmark
+	url = https://github.com/Event-AHU/Mamba_FETrack.git
+[submodule "libs/Mamba_FETrack"]
+	path = libs/Mamba_FETrack
+	url = https://github.com/Event-AHU/EventVOT_Benchmark.git
