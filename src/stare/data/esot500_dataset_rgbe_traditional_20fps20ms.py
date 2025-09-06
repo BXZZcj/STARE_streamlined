@@ -1,13 +1,17 @@
 ﻿import os
 import numpy as np
 from dv import AedatFile
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import torch
 
 from .base_dataset import BaseDataset
 
 
-class DemoVOTDataset(BaseDataset):
+class ESOT500DatasetRGBETraditional20FPS20MS(BaseDataset):
+    SAMPLING_WINDOW_MS = 20
+    FPS = 20
+    FRAME_INTERVAL_MS = 1000/FPS
+
     def __init__(self, dataset_path:str):
         super().__init__(dataset_path)
         
@@ -32,7 +36,7 @@ class DemoVOTDataset(BaseDataset):
             
         return self.current_loaded_seq_events
 
-    def _get_sequence_rgb(self, sequence_name)->np.ndarray:
+    def _get_sequence_rgb(self, sequence_name:str)->List[Tuple[int, np.ndarray]]:
         if self.cur_loaded_seq_rgb_name == sequence_name:
             return self.current_loaded_seq_frames
         else:
@@ -59,30 +63,69 @@ class DemoVOTDataset(BaseDataset):
         actual_ts_end_sec = ts_end_sec+evs_start_ts_sec
         return events[(events['timestamp']/1e6 >= actual_ts_start_sec) & (events['timestamp']/1e6 <= actual_ts_end_sec)]
 
-    def get_step_input_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
-        return self._get_events_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
-    
-    def get_init_input_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
-        return self._get_events_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
+    def _get_latest_rgb_by_regular_duration(self, sequence_name:str, cur_ts_sec:float)->np.ndarray:
+        rgbs = self._get_sequence_rgb(sequence_name)
+        events = self._get_sequence_events(sequence_name)
+        evs_start_ts_sec = events[0]["timestamp"]/1e6
+        actual_cur_ts_sec = cur_ts_sec+evs_start_ts_sec
 
+        optional_rgb = [rgb[0]/1e6<=actual_cur_ts_sec for rgb in rgbs]
+        latest_rgb_idx = sum(optional_rgb)-1
+        return rgbs[latest_rgb_idx][1]
+
+    def get_earlist_aval_rgb_regular_ts_sec(self, sequence_name:str, init_sampling_window_ms:float)->float:
+        rgbs = self._get_sequence_rgb(sequence_name)
+        events = self._get_sequence_events(sequence_name)
+        for rgb in rgbs:
+            if (rgb[0]-events[0]["timestamp"])/1e6 >= init_sampling_window_ms/1000.0:
+                return (rgb[0]-events[0]["timestamp"])/1e6
+        return None
+        
+    
+    # def _make_evs_ts_offset(self, sequence_name:str, offset_sec:float):
+    #     _ = self._get_sequence_events(sequence_name)
+    #     self.current_loaded_seq_events["timestamp"] = self.current_loaded_seq_events["timestamp"] + offset_sec*1e6
+        
+    def get_init_input_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->np.ndarray:
+        # TODO: Check if there's rgb frame available before the ts_end_sec
+        return self._get_latest_rgb_by_regular_duration(sequence_name,ts_end_sec),self._get_events_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
+        
+
+    def get_step_input_by_regular_duration(self, sequence_name:str, ts_start_sec:float, ts_end_sec:float)->Tuple[np.ndarray, np.ndarray]:
+        return self._get_latest_rgb_by_regular_duration(sequence_name,ts_end_sec),self._get_events_by_regular_duration(sequence_name, ts_start_sec, ts_end_sec)
+    
     def get_earlist_aval_init_input_exact_ts_sec(self, sequence_name:str, init_sampling_window_ms:float)->float:
         gt = self.get_sequence_gt(sequence_name)
         for gt_item in gt:
             if gt_item["timestamp"] >= init_sampling_window_ms/1000.0:
                 return gt_item["timestamp"]
         return None
-
+        
     def get_sequence_gt(self, sequence_name:str)->List[Dict]:
         gt_path = os.path.join(self.dataset_path, "annots", f'{sequence_name}.txt')
         ground_truth = []
         with open(gt_path, 'r') as f:
-            for line in f:
-                parts = line.split()
+            gt_str_lines = f.readlines()
+
+            for gt_str in gt_str_lines:
+                gt_ts_sec = float(gt_str.split()[0])
+                if gt_ts_sec >= self.SAMPLING_WINDOW_MS/1000:
+                    init_ts_ms = int(gt_ts_sec*1e3)
+                    init_window_left_ms = init_ts_ms - self.FRAME_INTERVAL_MS
+                    break
+                else:
+                    continue
+
+            for gt_str in gt_str_lines[1:]:
+                parts = gt_str.split()
                 timestamp = float(parts[0])
                 bbox = torch.tensor([int(p) for p in parts[1:]])
                 
-                ground_truth.append({
-                    "timestamp": timestamp,
-                    "annot": bbox
-                })
+                if int(timestamp*1e3 - init_window_left_ms)%self.FRAME_INTERVAL_MS != 0:
+                    continue
+                else:
+                    ground_truth.append({
+                        "timestamp": timestamp+self.FRAME_INTERVAL_MS/1000+1e-5,
+                        "annot": bbox
+                    })
         return ground_truth

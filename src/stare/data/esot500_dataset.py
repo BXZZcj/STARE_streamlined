@@ -7,7 +7,7 @@ import torch
 from .base_dataset import BaseDataset
 
 
-class DemoVOTDataset(BaseDataset):
+class ESOT500Dataset(BaseDataset):
     def __init__(self, dataset_path:str):
         super().__init__(dataset_path)
         
@@ -71,10 +71,11 @@ class DemoVOTDataset(BaseDataset):
             if gt_item["timestamp"] >= init_sampling_window_ms/1000.0:
                 return gt_item["timestamp"]
         return None
-
+        
     def get_sequence_gt(self, sequence_name:str)->List[Dict]:
-        gt_path = os.path.join(self.dataset_path, "annots", f'{sequence_name}.txt')
+        gt_path = os.path.join(self.dataset_path, "anno_t", f'{sequence_name}.txt')
         ground_truth = []
+        
         with open(gt_path, 'r') as f:
             for line in f:
                 parts = line.split()

@@ -42,5 +42,9 @@ class BaseDataset(ABC):
         pass
 
     @abstractmethod
+    def get_earlist_aval_init_input_exact_ts_sec(self, sequence_name:str, init_sampling_window_ms:float)->float:
+        pass
+
+    @abstractmethod
     def get_sequence_gt(self, sequence_name:str)->List[Dict]:
         pass

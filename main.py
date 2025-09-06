@@ -7,8 +7,30 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 from collections import defaultdict
+import torch
 
-import torch 
+import os
+import random
+
+def set_seed(seed: int):
+    """
+    Set all random seeds to ensure reproducibility.
+    """
+    random.seed(seed)
+    
+    np.random.seed(seed)
+    
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed) 
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
+    print(f"All random seeds set to: {seed}")
+set_seed(42)
+
 
 from stare.data import *
 from stare.models import *
@@ -172,7 +194,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--config_path", 
         type=str, 
-        default="/home/zongyouyu/nc/STARE_streamlined/src/stare/configs/mamba_fetrackV2_config.yaml",
+        default="/home/zongyouyu/nc/STARE_streamlined/src/stare/configs/egt_config.yaml",
         help="Path to the configuration file."
     )
     parser.add_argument(
