@@ -4,11 +4,20 @@
 
 STARE, an acronym for **ST**ream-based **lA**tency-awa**R**e **E**valuation, is a performance evaluation framework for event-based perception models, proposed in the paper [Bridging the Latency Gap with a Continuous Stream Evaluation Framework in Event-Driven Perception](https://www.researchsquare.com/article/rs-6135923/v1). STARE was designed to simulate the real-time online performance of event-based perception models in real-world deployment scenarios. The core of its implementation revolves around two key points:
 
-1.  Scheduling the model to **immediately sample events for the next inference loop** once it completes the last one.
-2.  Incorporating the model's **inference latency** into the evaluation of its perception accuracy.
+1.  **Continuous Sampling**: Leveraging the continuity of event stream, STARE schedules the model to immediately sample events for the next inference loop once it completes the last one.
+2.  **Latency-Aware Evaluation**: Incorporating the model's computational latency into the evaluation of its perception accuracy.
+
+The original paper demonstrated the effectiveness of STARE using the single-object tracking task and drew further conclusions. The code to reproduce the data from the original paper is available in this repository: [STARE](https://github.com/IIVEventGroup/STARE). That repository also implements STARE, but it is tightly coupled with the [pytracking](https://github.com/visionml/pytracking) framework, which is commonly used for object tracking, making it inconvenient for users to perform evaluations on other tasks. This is why we developed STARE (streamlined).
 
 This repository provides a streamlined implementation of STARE, hence the name STARE (streamlined). Its purpose is to make it easy for users to integrate STARE into various perception tasks.
-The original paper demonstrated the effectiveness of STARE using the single-object tracking task and drew further conclusions. The code to reproduce the data from the original paper is available in this repository: [STARE](https://github.com/IIVEventGroup/STARE). That repository also implements STARE, but it is tightly coupled with the [pytracking](https://github.com/visionml/pytracking) framework, which is commonly used for object tracking, making it inconvenient for users to perform evaluations on other tasks. This is why we developed STARE (streamlined).
+
+
+<p align="center">
+  <img src="imgs/FlowChart.jpg" width="70%">
+</p>
+<p align="left">
+  <em><strong>STARE framework adapted for various perception tasks.</strong> The diagram shows how STARE’s task-agnostic components, Continuous Sampling and Latency-Aware Evaluation, are applied to visual object tracking (VOT), object detection, and visual odometry. Task-specific elements (light-colored boxes) include the perception models and evaluation metrics (e.g., GIoU for VOT, mAP for detection).</em>
+</p>
 
 <br>
 
